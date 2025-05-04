@@ -9,13 +9,26 @@ import (
 )
 
 const (
-	screenWidth    = 80
-	screenHeight   = 22
-	bufferSize     = 1760
-	phiStep        = 0.07
-	thetaStep      = 0.02
-	frameDelay     = 30 * time.Millisecond
-	luminanceChars = ".,-~:;=!*#$@"
+	// Screen and buffer dimensions
+	screenWidth  = 80
+	screenHeight = 22
+	bufferSize   = screenWidth * screenHeight
+
+	// Donut geometry and animation
+	phiStep       		= 0.07
+	thetaStep     		= 0.02
+	frameDelay    		= 30 * time.Millisecond
+	radiusMajor   		= 2.0
+	radiusMinor   		= 1.0
+	distanceOffset		= 5.0
+	xScale        		= 30.0
+	yScale        		= 15.0
+	rotationAIncrement  = 0.04
+	rotationBIncrement  = 0.02
+
+	// Luminance
+	luminanceLevels = 8
+	luminanceChars  = ".,-~:;=!*#$@"
 )
 
 func main() {
@@ -34,8 +47,8 @@ func animateDonut() {
 		computeFrame(outputBuffer, zBuffer, rotationA, rotationB)
 		drawFrame(outputBuffer)
 		time.Sleep(frameDelay)
-		rotationA += 0.04
-		rotationB += 0.02
+		rotationA += rotationAIncrement
+		rotationB += rotationBIncrement
 	}
 }
 
@@ -47,8 +60,8 @@ func clearBuffers(outputBuffer []byte, zBuffer []float64) {
 }
 
 func computeFrame(outputBuffer []byte, zBuffer []float64, rotationA, rotationB float64) {
-	for anglePhi := 0.0; anglePhi < 6.28; anglePhi += phiStep {
-		for angleTheta := 0.0; angleTheta < 6.28; angleTheta += thetaStep {
+	for anglePhi := 0.0; anglePhi < 2*math.Pi; anglePhi += phiStep {
+		for angleTheta := 0.0; angleTheta < 2*math.Pi; angleTheta += thetaStep {
 			x, y, bufferOffset, invDepth := project3DTo2D(angleTheta, anglePhi, rotationA, rotationB)
 			luminanceIndex := calculateLuminanceIndex(angleTheta, anglePhi, rotationA, rotationB)
 			if isPointVisible(x, y, invDepth, zBuffer, bufferOffset) {
@@ -65,14 +78,14 @@ func project3DTo2D(angleTheta, anglePhi, rotationA, rotationB float64) (int, int
 	sinRotationA := math.Sin(rotationA)
 	sinPhi := math.Sin(anglePhi)
 	cosRotationA := math.Cos(rotationA)
-	h := cosPhi + 2
-	invDepth := 1 / (sinTheta*h*sinRotationA + sinPhi*cosRotationA + 5)
+	h := cosPhi + radiusMajor
+	invDepth := 1 / (sinTheta*h*sinRotationA + sinPhi*cosRotationA + distanceOffset)
 	cosTheta := math.Cos(angleTheta)
 	cosRotationB := math.Cos(rotationB)
 	sinRotationB := math.Sin(rotationB)
 	temp := sinTheta*h*cosRotationA - sinPhi*sinRotationA
-	x := int(float64(screenWidth/2) + 30*invDepth*(cosTheta*h*cosRotationB-temp*sinRotationB))
-	y := int(float64(screenHeight/2) + 15*invDepth*(cosTheta*h*sinRotationB+temp*cosRotationB))
+	x := int(float64(screenWidth/2) + xScale*invDepth*(cosTheta*h*cosRotationB-temp*sinRotationB))
+	y := int(float64(screenHeight/2) + yScale*invDepth*(cosTheta*h*sinRotationB+temp*cosRotationB))
 	bufferOffset := x + screenWidth*y
 	return x, y, bufferOffset, invDepth
 }
@@ -85,7 +98,7 @@ func calculateLuminanceIndex(angleTheta, anglePhi, rotationA, rotationB float64)
 	cosRotationA := math.Cos(rotationA)
 	cosRotationB := math.Cos(rotationB)
 	luminance := (sinPhi*sinRotationA-sinTheta*cosPhi*cosRotationA)*cosRotationB - sinTheta*cosPhi*sinRotationA - sinPhi*cosRotationA - math.Cos(angleTheta)*cosPhi*math.Sin(rotationB)
-	return int(8 * luminance)
+	return int(float64(luminanceLevels) * luminance)
 }
 
 func getLuminanceChar(luminanceIndex int) byte {
