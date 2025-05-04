@@ -1,5 +1,3 @@
-// donut.go - ASCII donut animation in Go
-// Inspired by the classic donut.c
 package main
 
 import (
@@ -9,12 +7,9 @@ import (
 )
 
 const (
-	// Screen and buffer dimensions
 	screenWidth 		= 		80
 	screenHeight		= 		22
 	bufferSize  		= 		screenWidth * screenHeight
-
-	// Donut geometry and animation
 	phiStep           	= 		0.07
 	thetaStep         	= 		0.02
 	frameDelay        	= 		30 * time.Millisecond
@@ -25,12 +20,8 @@ const (
 	yScale            	= 		15.0
 	rotationAIncrement	= 		0.04
 	rotationBIncrement	= 		0.02
-
-	// Luminance
 	luminanceLevels 	=		8
 	luminanceChars  	=		".,-~:;=!*#$@"
-	
-	// Terminal escape sequences
 	hideCursor 			=		"\x1b[?25l"
 	showCursor 			=		"\x1b[?25h"
 	clearScreen			=		"\x1b[2J"
@@ -78,6 +69,22 @@ func computeFrame(outputBuffer []byte, zBuffer []float64, rotationA, rotationB f
 	}
 }
 
+func drawFrame(outputBuffer []byte) {
+	fmt.Print(homeCursor)
+	for bufferIndex := range bufferSize {
+		if bufferIndex%screenWidth == screenWidth-1 {
+			fmt.Printf("%c\n", outputBuffer[bufferIndex])
+		} else {
+			fmt.Printf("%c", outputBuffer[bufferIndex])
+		}
+	}
+}
+
+
+func isPointVisible(x, y int, invDepth float64, zBuffer []float64, bufferOffset int) bool {
+	return screenHeight > y && y > 0 && x > 0 && screenWidth > x && invDepth > zBuffer[bufferOffset]
+}
+
 func project3DTo2D(angleTheta, anglePhi, rotationA, rotationB float64) (int, int, int, float64) {
 	sinTheta, cosTheta := getSinCos(angleTheta)
 	sinPhi, cosPhi := getSinCos(anglePhi)
@@ -99,6 +106,17 @@ func calculateLuminanceIndex(angleTheta, anglePhi, rotationA, rotationB float64)
 	sinRotationB, cosRotationB := getSinCos(rotationB)
 	luminance := getLuminance(sinTheta, cosTheta, sinPhi, cosPhi, sinRotationA, cosRotationA, sinRotationB, cosRotationB)
 	return int(float64(luminanceLevels) * luminance)
+}
+
+func getLuminanceChar(luminanceIndex int) byte {
+	if luminanceIndex > 0 && luminanceIndex < len(luminanceChars) {
+		return luminanceChars[luminanceIndex]
+	}
+	return luminanceChars[0]
+}
+
+func getLuminance(sinTheta, cosTheta, sinPhi, cosPhi, sinRotationA, cosRotationA, sinRotationB, cosRotationB float64) float64 {
+	return (sinPhi*sinRotationA-sinTheta*cosPhi*cosRotationA)*cosRotationB - sinTheta*cosPhi*sinRotationA - sinPhi*cosRotationA - cosTheta*cosPhi*sinRotationB
 }
 
 func getSinCos(angle float64) (float64, float64) {
@@ -123,30 +141,4 @@ func getScreenX(cosTheta, h, cosRotationB, temp, sinRotationB, invDepth float64)
 
 func getScreenY(cosTheta, h, sinRotationB, temp, cosRotationB, invDepth float64) int {
 	return int(float64(screenHeight/2) + yScale*invDepth*(cosTheta*h*sinRotationB+temp*cosRotationB))
-}
-
-func getLuminance(sinTheta, cosTheta, sinPhi, cosPhi, sinRotationA, cosRotationA, sinRotationB, cosRotationB float64) float64 {
-	return (sinPhi*sinRotationA-sinTheta*cosPhi*cosRotationA)*cosRotationB - sinTheta*cosPhi*sinRotationA - sinPhi*cosRotationA - cosTheta*cosPhi*sinRotationB
-}
-
-func getLuminanceChar(luminanceIndex int) byte {
-	if luminanceIndex > 0 && luminanceIndex < len(luminanceChars) {
-		return luminanceChars[luminanceIndex]
-	}
-	return luminanceChars[0]
-}
-
-func isPointVisible(x, y int, invDepth float64, zBuffer []float64, bufferOffset int) bool {
-	return screenHeight > y && y > 0 && x > 0 && screenWidth > x && invDepth > zBuffer[bufferOffset]
-}
-
-func drawFrame(outputBuffer []byte) {
-	fmt.Print(homeCursor)
-	for bufferIndex := range bufferSize {
-		if bufferIndex%screenWidth == screenWidth-1 {
-			fmt.Printf("%c\n", outputBuffer[bufferIndex])
-		} else {
-			fmt.Printf("%c", outputBuffer[bufferIndex])
-		}
-	}
 }
