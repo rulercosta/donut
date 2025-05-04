@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+const (
+	screenWidth    = 80
+	screenHeight   = 22
+	bufferSize     = 1760
+	phiStep        = 0.07
+	thetaStep      = 0.02
+	frameDelay     = 30 * time.Millisecond
+	luminanceChars = ".,-~:;=!*#$@"
+)
+
 func main() {
 	fmt.Print("\x1b[?25l")
 	defer fmt.Print("\x1b[?25h")
@@ -17,13 +27,13 @@ func main() {
 
 func animateDonut() {
 	rotationA, rotationB := 0.0, 0.0
-	zBuffer := make([]float64, 1760)
-	outputBuffer := make([]byte, 1760)
+	zBuffer := make([]float64, bufferSize)
+	outputBuffer := make([]byte, bufferSize)
 	for {
 		clearBuffers(outputBuffer, zBuffer)
 		computeFrame(outputBuffer, zBuffer, rotationA, rotationB)
 		drawFrame(outputBuffer)
-		time.Sleep(30 * time.Millisecond)
+		time.Sleep(frameDelay)
 		rotationA += 0.04
 		rotationB += 0.02
 	}
@@ -37,10 +47,10 @@ func clearBuffers(outputBuffer []byte, zBuffer []float64) {
 }
 
 func computeFrame(outputBuffer []byte, zBuffer []float64, rotationA, rotationB float64) {
-	var angleTheta, anglePhi float64
-	for anglePhi = 0; anglePhi < 6.28; anglePhi += 0.07 {
-		for angleTheta = 0; angleTheta < 6.28; angleTheta += 0.02 {
-			x, y, bufferOffset, invDepth, luminanceIndex := computeDonutPoint(angleTheta, anglePhi, rotationA, rotationB)
+	for anglePhi := 0.0; anglePhi < 6.28; anglePhi += phiStep {
+		for angleTheta := 0.0; angleTheta < 6.28; angleTheta += thetaStep {
+			x, y, bufferOffset, invDepth := project3DTo2D(angleTheta, anglePhi, rotationA, rotationB)
+			luminanceIndex := calculateLuminanceIndex(angleTheta, anglePhi, rotationA, rotationB)
 			if isPointVisible(x, y, invDepth, zBuffer, bufferOffset) {
 				zBuffer[bufferOffset] = invDepth
 				outputBuffer[bufferOffset] = getLuminanceChar(luminanceIndex)
@@ -49,7 +59,7 @@ func computeFrame(outputBuffer []byte, zBuffer []float64, rotationA, rotationB f
 	}
 }
 
-func computeDonutPoint(angleTheta, anglePhi, rotationA, rotationB float64) (int, int, int, float64, int) {
+func project3DTo2D(angleTheta, anglePhi, rotationA, rotationB float64) (int, int, int, float64) {
 	sinTheta := math.Sin(angleTheta)
 	cosPhi := math.Cos(anglePhi)
 	sinRotationA := math.Sin(rotationA)
@@ -61,29 +71,38 @@ func computeDonutPoint(angleTheta, anglePhi, rotationA, rotationB float64) (int,
 	cosRotationB := math.Cos(rotationB)
 	sinRotationB := math.Sin(rotationB)
 	temp := sinTheta*h*cosRotationA - sinPhi*sinRotationA
-	x := int(40 + 30*invDepth*(cosTheta*h*cosRotationB-temp*sinRotationB))
-	y := int(12 + 15*invDepth*(cosTheta*h*sinRotationB+temp*cosRotationB))
-	bufferOffset := x + 80*y
-	luminanceIndex := int(8 * ((sinPhi*sinRotationA-sinTheta*cosPhi*cosRotationA)*cosRotationB - sinTheta*cosPhi*sinRotationA - sinPhi*cosRotationA - cosTheta*cosPhi*sinRotationB))
-	return x, y, bufferOffset, invDepth, luminanceIndex
+	x := int(float64(screenWidth/2) + 30*invDepth*(cosTheta*h*cosRotationB-temp*sinRotationB))
+	y := int(float64(screenHeight/2) + 15*invDepth*(cosTheta*h*sinRotationB+temp*cosRotationB))
+	bufferOffset := x + screenWidth*y
+	return x, y, bufferOffset, invDepth
 }
 
-func isPointVisible(x, y int, invDepth float64, zBuffer []float64, bufferOffset int) bool {
-	return 22 > y && y > 0 && x > 0 && 80 > x && invDepth > zBuffer[bufferOffset]
+func calculateLuminanceIndex(angleTheta, anglePhi, rotationA, rotationB float64) int {
+	sinTheta := math.Sin(angleTheta)
+	cosPhi := math.Cos(anglePhi)
+	sinRotationA := math.Sin(rotationA)
+	sinPhi := math.Sin(anglePhi)
+	cosRotationA := math.Cos(rotationA)
+	cosRotationB := math.Cos(rotationB)
+	luminance := (sinPhi*sinRotationA-sinTheta*cosPhi*cosRotationA)*cosRotationB - sinTheta*cosPhi*sinRotationA - sinPhi*cosRotationA - math.Cos(angleTheta)*cosPhi*math.Sin(rotationB)
+	return int(8 * luminance)
 }
 
 func getLuminanceChar(luminanceIndex int) byte {
-	luminanceChars := ".,-~:;=!*#$@"
 	if luminanceIndex > 0 && luminanceIndex < len(luminanceChars) {
 		return luminanceChars[luminanceIndex]
 	}
 	return luminanceChars[0]
 }
 
+func isPointVisible(x, y int, invDepth float64, zBuffer []float64, bufferOffset int) bool {
+	return screenHeight > y && y > 0 && x > 0 && screenWidth > x && invDepth > zBuffer[bufferOffset]
+}
+
 func drawFrame(outputBuffer []byte) {
 	fmt.Print("\x1b[H")
-	for bufferIndex := range 1760 {
-		if bufferIndex%80 == 79 {
+	for bufferIndex := range bufferSize {
+		if bufferIndex%screenWidth == screenWidth-1 {
 			fmt.Printf("%c\n", outputBuffer[bufferIndex])
 		} else {
 			fmt.Printf("%c", outputBuffer[bufferIndex])
