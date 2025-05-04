@@ -1,4 +1,3 @@
-<!-- Badges -->
 <div align="center">
   <a href="https://golang.org/">
     <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white&style=for-the-badge" alt="Go Version"/>
@@ -23,6 +22,10 @@ Run the following to see the donut in action:
 ```
 go run donut.go
 ```
+
+<div align="center">
+  <img src="donut.gif" alt="Donut Animation" width="100%"/>
+</div>
 
 ### How It Works
 
