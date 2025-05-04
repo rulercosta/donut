@@ -10,31 +10,37 @@ import (
 
 const (
 	// Screen and buffer dimensions
-	screenWidth  = 80
-	screenHeight = 22
-	bufferSize   = screenWidth * screenHeight
+	screenWidth 		= 80
+	screenHeight		= 22
+	bufferSize  		= screenWidth * screenHeight
 
 	// Donut geometry and animation
-	phiStep       		= 0.07
-	thetaStep     		= 0.02
-	frameDelay    		= 30 * time.Millisecond
-	radiusMajor   		= 2.0
-	radiusMinor   		= 1.0
-	distanceOffset		= 5.0
-	xScale        		= 30.0
-	yScale        		= 15.0
-	rotationAIncrement  = 0.04
-	rotationBIncrement  = 0.02
+	phiStep            	= 0.07
+	thetaStep          	= 0.02
+	frameDelay         	= 30 * time.Millisecond
+	radiusMajor        	= 2.0
+	radiusMinor        	= 1.0
+	distanceOffset     	= 5.0
+	xScale             	= 30.0
+	yScale             	= 15.0
+	rotationAIncrement 	= 0.04
+	rotationBIncrement 	= 0.02
 
 	// Luminance
-	luminanceLevels = 8
-	luminanceChars  = ".,-~:;=!*#$@"
+	luminanceLevels 	= 8
+	luminanceChars  	= ".,-~:;=!*#$@"
+
+	// Terminal escape sequences
+	hideCursor  		= "\x1b[?25l"
+	showCursor  		= "\x1b[?25h"
+	clearScreen 		= "\x1b[2J"
+	homeCursor  		= "\x1b[H"
 )
 
 func main() {
-	fmt.Print("\x1b[?25l")
-	defer fmt.Print("\x1b[?25h")
-	fmt.Print("\x1b[2J")
+	fmt.Print(hideCursor)
+	defer fmt.Print(showCursor)
+	fmt.Print(clearScreen)
 	animateDonut()
 }
 
@@ -113,7 +119,7 @@ func isPointVisible(x, y int, invDepth float64, zBuffer []float64, bufferOffset 
 }
 
 func drawFrame(outputBuffer []byte) {
-	fmt.Print("\x1b[H")
+	fmt.Print(homeCursor)
 	for bufferIndex := range bufferSize {
 		if bufferIndex%screenWidth == screenWidth-1 {
 			fmt.Printf("%c\n", outputBuffer[bufferIndex])
